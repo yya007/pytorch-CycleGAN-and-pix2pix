@@ -1,4 +1,3 @@
-import time
 import os
 from options.test_options import TestOptions
 from data.data_loader import CreateDataLoader
@@ -27,7 +26,7 @@ for i, data in enumerate(dataset):
     model.test()
     visuals = model.get_current_visuals()
     img_path = model.get_image_paths()
-    print('process image... %s' % img_path)
-    visualizer.save_images(webpage, visuals, img_path)
+    print('%04d: process image... %s' % (i, img_path))
+    visualizer.save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio)
 
 webpage.save()

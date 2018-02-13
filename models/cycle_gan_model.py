@@ -1,6 +1,4 @@
-import numpy as np
 import torch
-import os
 from collections import OrderedDict
 from torch.autograd import Variable
 import itertools
@@ -8,7 +6,6 @@ import util.util as util
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
-import sys
 
 
 class CycleGANModel(BaseModel):
@@ -17,12 +14,6 @@ class CycleGANModel(BaseModel):
 
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
-
-        nb = opt.batchSize
-        size = opt.fineSize
-        self.input_A = self.Tensor(nb, opt.input_nc, size, size)
-        self.input_B = self.Tensor(nb, opt.output_nc, size, size)
-
         # load/define networks
         # The naming conversion is different from those used in the paper
         # Code (paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
@@ -49,7 +40,6 @@ class CycleGANModel(BaseModel):
                 self.load_network(self.netD_B, 'D_B', which_epoch)
 
         if self.isTrain:
-            self.old_lr = opt.lr
             self.fake_A_pool = ImagePool(opt.pool_size)
             self.fake_B_pool = ImagePool(opt.pool_size)
             # define loss functions
@@ -81,8 +71,11 @@ class CycleGANModel(BaseModel):
         AtoB = self.opt.which_direction == 'AtoB'
         input_A = input['A' if AtoB else 'B']
         input_B = input['B' if AtoB else 'A']
-        self.input_A.resize_(input_A.size()).copy_(input_A)
-        self.input_B.resize_(input_B.size()).copy_(input_B)
+        if len(self.gpu_ids) > 0:
+            input_A = input_A.cuda(self.gpu_ids[0], async=True)
+            input_B = input_B.cuda(self.gpu_ids[0], async=True)
+        self.input_A = input_A
+        self.input_B = input_B
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
@@ -199,7 +192,7 @@ class CycleGANModel(BaseModel):
 
     def get_current_errors(self):
         ret_errors = OrderedDict([('D_A', self.loss_D_A), ('G_A', self.loss_G_A), ('Cyc_A', self.loss_cycle_A),
-                                 ('D_B', self.loss_D_B), ('G_B', self.loss_G_B), ('Cyc_B',  self.loss_cycle_B)])
+                                  ('D_B', self.loss_D_B), ('G_B', self.loss_G_B), ('Cyc_B', self.loss_cycle_B)])
         if self.opt.identity > 0.0:
             ret_errors['idt_A'] = self.loss_idt_A
             ret_errors['idt_B'] = self.loss_idt_B
